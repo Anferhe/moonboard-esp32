@@ -5,8 +5,8 @@
  *      Author: yaroslav
  */
 
-#ifndef MAIN_BLE_H_
-#define MAIN_BLE_H_
+#ifndef MAIN_BLE_BLE_H_
+#define MAIN_BLE_BLE_H_
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -34,9 +34,9 @@
 
 
 // Implemented in main.c
-void on_data_receiving(const void *data, size_t data_len);
+void onDataReceiving(const void *data, size_t dataLen);
 
-void setup_ble();
+void setupBle();
 
 
-#endif /* MAIN_BLE_H_ */
+#endif /* MAIN_BLE_BLE_H_ */

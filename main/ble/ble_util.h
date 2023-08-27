@@ -5,8 +5,8 @@
  *      Author: yaroslav
  */
 
-#ifndef MAIN_BLE_UTIL_H_
-#define MAIN_BLE_UTIL_H_
+#ifndef MAIN_BLE_BLE_UTIL_H_
+#define MAIN_BLE_BLE_UTIL_H_
 
 #include "esp_bt_defs.h"
 #include "esp_gatts_api.h"
@@ -60,4 +60,4 @@ struct gatts_profile_inst {
     esp_bt_uuid_t char_uuid;
 };
 
-#endif /* MAIN_BLE_UTIL_H_ */
+#endif /* MAIN_BLE_BLE_UTIL_H_ */

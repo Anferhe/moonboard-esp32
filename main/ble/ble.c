@@ -6,8 +6,8 @@
  */
 
 
-#include "ble.h"
-#include "ble_util.h"
+#include <ble/ble.h>
+#include <ble/ble_util.h>
 
 
 static void gatt_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
@@ -60,7 +60,7 @@ static void gatt_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t
 			ESP_LOGI(LOG_TAG_BLE, "GATT_WRITE_EVT, value len %d, value :", param->write.len);
 			esp_log_buffer_hex(LOG_TAG_BLE, param->write.value, param->write.len);
 
-			on_data_receiving(param->write.value, param->write.len);
+			onDataReceiving(param->write.value, param->write.len);
 			break;
 
 		case ESP_GATTS_CREATE_EVT:
@@ -122,7 +122,7 @@ static void gatt_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_i
     }
 }
 
-void setup_ble()
+void setupBle()
 {
     esp_err_t ret;
 
