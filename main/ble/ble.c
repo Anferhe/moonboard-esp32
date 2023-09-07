@@ -19,14 +19,16 @@ static const esp_ble_gap_ext_adv_params_t adv_params = {
     .interval_min = 0x50,
     .interval_max = 0x50,
     .channel_map = ADV_CHNL_ALL,
+    .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
+    .peer_addr_type = BLE_ADDR_TYPE_PUBLIC,
+    .peer_addr = {0, 0, 0, 0, 0, 0},
     .filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
+    .tx_power = EXT_ADV_TX_PWR_NO_PREFERENCE,
     .primary_phy = ESP_BLE_GAP_PHY_1M,
     .max_skip = 0,
     .secondary_phy = ESP_BLE_GAP_PHY_1M,
     .sid = 0,
     .scan_req_notif = false,
-    .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
-    .tx_power = EXT_ADV_TX_PWR_NO_PREFERENCE,
 };
 
 static struct gatts_profile_inst gatt_profile = {

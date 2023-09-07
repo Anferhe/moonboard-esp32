@@ -1,0 +1,20 @@
+00  Advertising_Type: Connectable and scannable undirected advertising (ADV_IND)
+00  Own_Address_Type: Public Device Address (default)
+00  Peer_Address_Type: Public Device Address (default) or Public Identity Address
+
+Public Device Address, Random Device Address, Public Identity
+Address, or Random (static) Identity Address of the device to be
+connected.
+
+00  
+00 
+00 
+00 
+00 
+00
+ 
+07  Advertising_Channel_Map: Default (all channels enabled)
+00  Advertising_Filter_Policy: Process scan and connection requests from all devices (i.e., the White List
+is not in use) (default).
+
+
