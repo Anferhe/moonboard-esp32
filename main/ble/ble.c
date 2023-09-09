@@ -12,21 +12,21 @@
 
 static void gatt_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 static void gatt_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
-
+static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
 
 static const esp_ble_gap_ext_adv_params_t adv_params = {
     .type = ESP_BLE_GAP_SET_EXT_ADV_PROP_LEGACY_IND,
-    .interval_min = 0x50,
-    .interval_max = 0x50,
+    .interval_min = 0x0280,
+    .interval_max = 0x03c0,
     .channel_map = ADV_CHNL_ALL,
     .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
     .peer_addr_type = BLE_ADDR_TYPE_PUBLIC,
     .peer_addr = {0, 0, 0, 0, 0, 0},
     .filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
     .tx_power = EXT_ADV_TX_PWR_NO_PREFERENCE,
-    .primary_phy = ESP_BLE_GAP_PHY_1M,
+    .primary_phy = ESP_BLE_GAP_PRI_PHY_1M,
     .max_skip = 0,
-    .secondary_phy = ESP_BLE_GAP_PHY_1M,
+    .secondary_phy = ESP_BLE_GAP_PHY_CODED,
     .sid = 0,
     .scan_req_notif = false,
 };
@@ -38,6 +38,96 @@ static struct gatts_profile_inst gatt_profile = {
 
 static uint8_t connectedDevCount = 0;
 
+
+static char *esp_key_type_to_str(esp_ble_key_type_t key_type)
+{
+   char *key_str = NULL;
+   switch(key_type) {
+    case ESP_LE_KEY_NONE:
+        key_str = "ESP_LE_KEY_NONE";
+        break;
+    case ESP_LE_KEY_PENC:
+        key_str = "ESP_LE_KEY_PENC";
+        break;
+    case ESP_LE_KEY_PID:
+        key_str = "ESP_LE_KEY_PID";
+        break;
+    case ESP_LE_KEY_PCSRK:
+        key_str = "ESP_LE_KEY_PCSRK";
+        break;
+    case ESP_LE_KEY_PLK:
+        key_str = "ESP_LE_KEY_PLK";
+        break;
+    case ESP_LE_KEY_LLK:
+        key_str = "ESP_LE_KEY_LLK";
+        break;
+    case ESP_LE_KEY_LENC:
+        key_str = "ESP_LE_KEY_LENC";
+        break;
+    case ESP_LE_KEY_LID:
+        key_str = "ESP_LE_KEY_LID";
+        break;
+    case ESP_LE_KEY_LCSRK:
+        key_str = "ESP_LE_KEY_LCSRK";
+        break;
+    default:
+        key_str = "INVALID BLE KEY TYPE";
+        break;
+
+   }
+
+   return key_str;
+}
+
+static char *esp_auth_req_to_str(esp_ble_auth_req_t auth_req)
+{
+   char *auth_str = NULL;
+   switch(auth_req) {
+    case ESP_LE_AUTH_NO_BOND:
+        auth_str = "ESP_LE_AUTH_NO_BOND";
+        break;
+    case ESP_LE_AUTH_BOND:
+        auth_str = "ESP_LE_AUTH_BOND";
+        break;
+    case ESP_LE_AUTH_REQ_MITM:
+        auth_str = "ESP_LE_AUTH_REQ_MITM";
+        break;
+    case ESP_LE_AUTH_REQ_BOND_MITM:
+        auth_str = "ESP_LE_AUTH_REQ_BOND_MITM";
+        break;
+    case ESP_LE_AUTH_REQ_SC_ONLY:
+        auth_str = "ESP_LE_AUTH_REQ_SC_ONLY";
+        break;
+    case ESP_LE_AUTH_REQ_SC_BOND:
+        auth_str = "ESP_LE_AUTH_REQ_SC_BOND";
+        break;
+    case ESP_LE_AUTH_REQ_SC_MITM:
+        auth_str = "ESP_LE_AUTH_REQ_SC_MITM";
+        break;
+    case ESP_LE_AUTH_REQ_SC_MITM_BOND:
+        auth_str = "ESP_LE_AUTH_REQ_SC_MITM_BOND";
+        break;
+    default:
+        auth_str = "INVALID BLE AUTH REQ";
+        break;
+   }
+
+   return auth_str;
+}
+
+static void show_bonded_devices(void)
+{
+    int dev_num = esp_ble_get_bond_device_num();
+
+    esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * dev_num);
+    esp_ble_get_bond_device_list(&dev_num, dev_list);
+    ESP_LOGI(LOG_TAG_BLE, "Bonded devices number : %d", dev_num);
+    for (int i = 0; i < dev_num; i++) {
+        esp_log_buffer_hex(LOG_TAG_BLE, (void *)dev_list[i].bd_addr, sizeof(esp_bd_addr_t));
+    }
+
+    free(dev_list);
+}
 
 static void gatt_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
     switch (event) {
@@ -124,6 +214,101 @@ static void gatt_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_i
     }
 }
 
+static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
+{
+	printf("GAP event: %d\n", event);
+    switch (event) {
+    case ESP_GAP_BLE_EXT_ADV_SET_PARAMS_COMPLETE_EVT:
+        ESP_LOGI(LOG_TAG_GAP,"ESP_GAP_BLE_EXT_ADV_SET_PARAMS_COMPLETE_EVT status %d",  param->ext_adv_set_params.status);
+        break;
+    case ESP_GAP_BLE_EXT_ADV_DATA_SET_COMPLETE_EVT:
+         ESP_LOGI(LOG_TAG_GAP,"ESP_GAP_BLE_EXT_ADV_DATA_SET_COMPLETE_EVT status %d",  param->ext_adv_data_set.status);
+         break;
+    case ESP_GAP_BLE_EXT_ADV_START_COMPLETE_EVT:
+         ESP_LOGI(LOG_TAG_GAP, "ESP_GAP_BLE_EXT_ADV_START_COMPLETE_EVT, status = %d", param->ext_adv_data_set.status);
+        break;
+    case ESP_GAP_BLE_ADV_TERMINATED_EVT:
+        ESP_LOGI(LOG_TAG_GAP, "ESP_GAP_BLE_ADV_TERMINATED_EVT, status = %d", param->adv_terminate.status);
+        if(param->adv_terminate.status == 0x00) {
+            ESP_LOGI(LOG_TAG_GAP, "ADV successfully ended with a connection being created");
+        }
+        break;
+    case ESP_GAP_BLE_PASSKEY_REQ_EVT:                           /* passkey request event */
+        /* Call the following function to input the passkey which is displayed on the remote device */
+        //esp_ble_passkey_reply(heart_rate_profile_tab[HEART_PROFILE_APP_IDX].remote_bda, true, 0x00);
+        break;
+    case ESP_GAP_BLE_OOB_REQ_EVT: {
+        ESP_LOGI(LOG_TAG_GAP, "ESP_GAP_BLE_OOB_REQ_EVT");
+        uint8_t tk[16] = {1}; //If you paired with OOB, both devices need to use the same tk
+        esp_ble_oob_req_reply(param->ble_security.ble_req.bd_addr, tk, sizeof(tk));
+        break;
+    }
+    case ESP_GAP_BLE_LOCAL_IR_EVT:                               /* BLE local IR event */
+        ESP_LOGI(LOG_TAG_GAP, "ESP_GAP_BLE_LOCAL_IR_EVT");
+        break;
+    case ESP_GAP_BLE_LOCAL_ER_EVT:                               /* BLE local ER event */
+        ESP_LOGI(LOG_TAG_GAP, "ESP_GAP_BLE_LOCAL_ER_EVT");
+        break;
+    case ESP_GAP_BLE_NC_REQ_EVT:
+        /* The app will receive this evt when the IO has DisplayYesNO capability and the peer device IO also has DisplayYesNo capability.
+        show the passkey number to the user to confirm it with the number displayed by peer device. */
+        esp_ble_confirm_reply(param->ble_security.ble_req.bd_addr, true);
+        ESP_LOGI(LOG_TAG_GAP, "ESP_GAP_BLE_NC_REQ_EVT, the passkey Notify number:%" PRIu32, param->ble_security.key_notif.passkey);
+        break;
+    case ESP_GAP_BLE_SEC_REQ_EVT:
+        /* send the positive(true) security response to the peer device to accept the security request.
+        If not accept the security request, should send the security response with negative(false) accept value*/
+        esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, true);
+        break;
+    case ESP_GAP_BLE_PASSKEY_NOTIF_EVT:  ///the app will receive this evt when the IO  has Output capability and the peer device IO has Input capability.
+        ///show the passkey number to the user to input it in the peer device.
+        ESP_LOGI(LOG_TAG_GAP, "The passkey Notify number:%06" PRIu32, param->ble_security.key_notif.passkey);
+        break;
+    case ESP_GAP_BLE_KEY_EVT:
+        //shows the ble key info share with peer device to the user.
+        ESP_LOGI(LOG_TAG_GAP, "key type = %s", esp_key_type_to_str(param->ble_security.ble_key.key_type));
+        break;
+    case ESP_GAP_BLE_AUTH_CMPL_EVT: {
+        esp_bd_addr_t bd_addr;
+        memcpy(bd_addr, param->ble_security.auth_cmpl.bd_addr, sizeof(esp_bd_addr_t));
+        ESP_LOGI(LOG_TAG_GAP, "remote BD_ADDR: %08x%04x",\
+                (bd_addr[0] << 24) + (bd_addr[1] << 16) + (bd_addr[2] << 8) + bd_addr[3],
+                (bd_addr[4] << 8) + bd_addr[5]);
+        ESP_LOGI(LOG_TAG_GAP, "address type = %d", param->ble_security.auth_cmpl.addr_type);
+        ESP_LOGI(LOG_TAG_GAP, "pair status = %s",param->ble_security.auth_cmpl.success ? "success" : "fail");
+        if(!param->ble_security.auth_cmpl.success) {
+            ESP_LOGI(LOG_TAG_GAP, "fail reason = 0x%x",param->ble_security.auth_cmpl.fail_reason);
+        } else {
+            ESP_LOGI(LOG_TAG_GAP, "auth mode = %s",esp_auth_req_to_str(param->ble_security.auth_cmpl.auth_mode));
+        }
+        show_bonded_devices();
+        break;
+    }
+    case ESP_GAP_BLE_REMOVE_BOND_DEV_COMPLETE_EVT: {
+        ESP_LOGD(LOG_TAG_GAP, "ESP_GAP_BLE_REMOVE_BOND_DEV_COMPLETE_EVT status = %d", param->remove_bond_dev_cmpl.status);
+        ESP_LOGI(LOG_TAG_GAP, "ESP_GAP_BLE_REMOVE_BOND_DEV");
+        ESP_LOGI(LOG_TAG_GAP, "-----ESP_GAP_BLE_REMOVE_BOND_DEV----");
+        esp_log_buffer_hex(LOG_TAG_GAP, (void *)param->remove_bond_dev_cmpl.bd_addr, sizeof(esp_bd_addr_t));
+        ESP_LOGI(LOG_TAG_GAP, "------------------------------------");
+        break;
+    }
+    case ESP_GAP_BLE_SET_LOCAL_PRIVACY_COMPLETE_EVT:
+        ESP_LOGI(LOG_TAG_GAP, "ESP_GAP_BLE_SET_LOCAL_PRIVACY_COMPLETE_EVT, tatus = %x", param->local_privacy_cmpl.status);
+        break;
+    case ESP_GAP_BLE_UPDATE_CONN_PARAMS_EVT:
+         ESP_LOGI(LOG_TAG_GAP, "update connection params status = %d, min_int = %d, max_int = %d,conn_int = %d,latency = %d, timeout = %d",
+                  param->update_conn_params.status,
+                  param->update_conn_params.min_int,
+                  param->update_conn_params.max_int,
+                  param->update_conn_params.conn_int,
+                  param->update_conn_params.latency,
+                  param->update_conn_params.timeout);
+        break;
+    default:
+        break;
+    }
+}
+
 void setupBle()
 {
     esp_err_t ret;
@@ -144,6 +329,7 @@ void setupBle()
     ESP_ERROR_CHECK(esp_bluedroid_init());
     ESP_ERROR_CHECK(esp_bluedroid_enable());
 
+    ESP_ERROR_CHECK(esp_ble_gap_register_callback(gap_event_handler));
     ESP_ERROR_CHECK(esp_ble_gatts_register_callback(gatt_event_handler));
     ESP_ERROR_CHECK(esp_ble_gatts_app_register(GATT_APP_ID));
 

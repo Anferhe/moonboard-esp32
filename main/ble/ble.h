@@ -28,6 +28,7 @@
 
 
 #define LOG_TAG_BLE             "BLE"
+#define LOG_TAG_GAP             "GAP"
 
 #define MAX_CONNECTION_COUNT    CONFIG_BT_ACL_CONNECTIONS
 #define DEVICE_NAME             "Moonboard ElCap"
