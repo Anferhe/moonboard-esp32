@@ -14,10 +14,13 @@ static void gatt_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t
 static void gatt_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
 
+static int host_rcv_pkt(uint8_t *data, uint16_t len);
+static void controller_rcv_pkt_ready(void);
+
 static const esp_ble_gap_ext_adv_params_t adv_params = {
     .type = ESP_BLE_GAP_SET_EXT_ADV_PROP_LEGACY_IND,
-    .interval_min = 0x0280,
-    .interval_max = 0x03c0,
+    .interval_min = 0x080,
+    .interval_max = 0x0c0,
     .channel_map = ADV_CHNL_ALL,
     .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
     .peer_addr_type = BLE_ADDR_TYPE_PUBLIC,
@@ -34,6 +37,11 @@ static const esp_ble_gap_ext_adv_params_t adv_params = {
 static struct gatts_profile_inst gatt_profile = {
 	.gatts_cb = gatt_profile_event_handler,
 	.gatts_if = ESP_GATT_IF_NONE
+};
+
+static esp_vhci_host_callback_t vhci_host_cb = {
+    .notify_host_send_available = controller_rcv_pkt_ready,
+    .notify_host_recv = host_rcv_pkt
 };
 
 static uint8_t connectedDevCount = 0;
@@ -154,7 +162,11 @@ static void gatt_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t
 
 			onDataReceiving(param->write.value, param->write.len);
 			break;
-
+		case ESP_GATTS_MTU_EVT:
+			ESP_LOGI(LOG_TAG_BLE, "ESP_GATTS_MTU_EVT, mtu %d, conn_id %d", param->mtu.mtu, param->mtu.conn_id);
+			esp_err_t set_mtu_ret = esp_ble_gatt_set_local_mtu(param->mtu.mtu);
+			ESP_LOGI(LOG_TAG_BLE, "esp_ble_gatt_set_local_mtu result %d", set_mtu_ret);
+			break;
 		case ESP_GATTS_CREATE_EVT:
 			ESP_LOGI(LOG_TAG_BLE, "CREATE_SERVICE_EVT, status %d,  service_handle %d", param->create.status, param->create.service_handle);
 			gatt_profile.service_handle = param->create.service_handle;
@@ -304,9 +316,41 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
                   param->update_conn_params.latency,
                   param->update_conn_params.timeout);
         break;
+    case ESP_GAP_BLE_PHY_UPDATE_COMPLETE_EVT:
+        ESP_LOGI(LOG_TAG_GAP, "update phy params status = %d, tx_phy = %d, rx_phy = %d",
+                 param->phy_update.status,
+                 param->phy_update.tx_phy,
+                 param->phy_update.rx_phy);
+
+        ESP_LOG_BUFFER_HEX(LOG_TAG_GAP, param->phy_update.bda, ESP_BD_ADDR_LEN);
+        break;
     default:
         break;
     }
+}
+
+static void controller_rcv_pkt_ready(void)
+{
+    ESP_LOGI(LOG_TAG_HCI, "Controller rcv pkt ready");
+}
+
+static int host_rcv_pkt(uint8_t *data, uint16_t len)
+{
+    /* Check second byte for HCI event. If event opcode is 0x0e, the event is
+     * HCI Command Complete event. Sice we have recieved "0x0e" event, we can
+     * check for byte 4 for command opcode and byte 6 for it's return status. */
+    if (data[1] == 0x0e) {
+        if (data[6] == 0) {
+            ESP_LOGI(LOG_TAG_HCI, "Event opcode 0x%02x success.", data[4]);
+        } else {
+            ESP_LOGE(LOG_TAG_HCI, "Event opcode 0x%02x fail with reason: 0x%02x.", data[4], data[6]);
+            return ESP_FAIL;
+        }
+    } else {
+		ESP_LOG_BUFFER_HEX(LOG_TAG_HCI, data, len);
+    }
+
+    return ESP_OK;
 }
 
 void setupBle()
@@ -338,6 +382,8 @@ void setupBle()
     ESP_ERROR_CHECK(esp_ble_gap_ext_adv_set_params(EXT_ADV_HANDLE, &adv_params));
     ESP_ERROR_CHECK(esp_ble_gap_config_ext_adv_data_raw(EXT_ADV_HANDLE, sizeof(raw_adv_data), &raw_adv_data[0]));
     ESP_ERROR_CHECK(esp_ble_gap_config_ext_scan_rsp_data_raw(EXT_ADV_HANDLE, sizeof(raw_scan_rsp_data), &raw_scan_rsp_data[0]));
+
+//    ESP_ERROR_CHECK(esp_vhci_host_register_callback(&vhci_host_cb));
 
     // Start advertising
     esp_ble_gap_ext_adv_start(NUM_EXT_ADV, &ext_adv);
